@@ -1,0 +1,21 @@
+# Ignore local node_modules, as EAS will install them in the cloud
+node_modules/
+
+# Ignore local build artifacts
+.expo/
+android/
+ios/
+dist/
+
+# Ignore sensitive files (they should be in eas.json or EAS Secret)
+.env
+.env.local
+
+# Ignore large media if necessary (but keep app assets)
+# *.mp4
+# *.mov
+
+# Standard git ignores
+.git
+.gitignore
+.vscode

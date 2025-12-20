@@ -22,8 +22,7 @@
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "CAMERA"
       ],
       "edgeToEdgeEnabled": true
     },
@@ -60,10 +59,6 @@
       "fallbackToCacheTimeout": 0
     },
     "extra": {
-      "apiBaseUrl": "http://localhost:3000",
-      "supabaseUrl": "https://uvvwqlhixutjtujjvuca.supabase.co",
-      "supabaseAnonKey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV2dndxbGhpeHV0anR1amp2dWNhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU3MDIxODcsImV4cCI6MjA4MTI3ODE4N30.jYdphY106OKRbbqdXQMB7xK9zTP_258V-75YLQEq2X0",
-      "router": {},
       "eas": {
         "projectId": "5b024e0a-1a55-4c84-9fbf-d1d6618e82e5"
       }
