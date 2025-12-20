@@ -7,6 +7,9 @@ android/
 ios/
 dist/
 
+# Ignore large unused assets
+assets/未命名文件夹/
+
 # Ignore sensitive files (they should be in eas.json or EAS Secret)
 .env
 .env.local

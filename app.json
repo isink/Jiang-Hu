@@ -18,13 +18,12 @@
     },
     "android": {
       "package": "com.wenhandong.jianghu",
-      "versionCode": 1,
+      "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA"
-      ],
-      "edgeToEdgeEnabled": true
+      ]
     },
     "web": {
       "output": "static",
@@ -44,9 +43,8 @@
       [
         "@sentry/react-native/expo",
         {
-          "organization": "wenhandong",
-          "project": "jianghu",
-          "url": "https://sentry.io/"
+          "organization": "handwanly",
+          "project": "jianghu"
         }
       ]
     ],
