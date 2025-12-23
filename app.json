@@ -8,22 +8,26 @@
     "scheme": "jianghu",
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.wenhandong.jianghu",
-      "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Jianghu uses your location to display your current position on the map and calculate distances to nearby landmarks.",
-        "NSCameraUsageDescription": "Jianghu needs camera access to allow you to take and upload photos for your user profile."
-      }
-    },
-    "android": {
-      "package": "com.wenhandong.jianghu",
-      "edgeToEdgeEnabled": true,
+      "ios": {
+        "supportsTablet": true,
+        "bundleIdentifier": "com.wenhandong.jianghu",
+        "buildNumber": "3",
+        "infoPlist": {
+          "NSLocationWhenInUseUsageDescription": "Jianghu uses your location to display your current position on the map and calculate distances to nearby landmarks."
+        }
+      },
+      "android": {
+        "package": "com.wenhandong.jianghu",
+        "versionCode": 3,      "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION",
-        "CAMERA"
-      ]
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDi7lIY4HbThFRxSJuSgopkMo8sqnBsp_4"
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -46,7 +50,8 @@
           "organization": "handwanly",
           "project": "jianghu"
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "experiments": {
       "typedRoutes": true,
