@@ -60,34 +60,58 @@ export default function FavoritesScreen() {
     </View>
   );
 
-  const renderItem = ({ item: loc, index }: { item: LocationDetail, index: number }) => (
-    <AnimatedTouchable 
-        entering={FadeInDown.delay(index * 100).duration(500)}
-        style={styles.card} 
-        activeOpacity={0.8}
-        onPress={() => {
-            haptics.light();
-            router.push(`/location/${loc.id}`);
-        }}
-    >
-        <View style={styles.cardImageContainer}>
-            <Image 
-                source={(loc as any).image ? (loc as any).image : loc.imageUrl ? { uri: loc.imageUrl } : require('../assets/HUBview.jpg')} 
-                style={styles.cardImage} 
-                contentFit="cover"
-            />
-            <View style={styles.cardOverlay} />
-        </View>
-        <View style={styles.cardContent}>
-            <Text style={styles.cardTitle} numberOfLines={1}>{loc.title}</Text>
-            <Text style={styles.cardCategory}>{loc.category}</Text>
-            <View style={styles.cardFooter}>
-                <Ionicons name="bookmark" size={14} color={Colors.cyberpunk.neonGreen} />
-                <Text style={styles.savedLabel}>SAVED</Text>
+  const renderItem = ({ item: loc, index }: { item: LocationDetail, index: number }) => {
+    // Only animate the first few items for performance
+    const animated = index < 10;
+    
+    const content = (
+        <View style={styles.card}>
+            <View style={styles.cardImageContainer}>
+                <Image 
+                    source={(loc as any).image ? (loc as any).image : loc.imageUrl ? { uri: loc.imageUrl } : require('../assets/HUBview.jpg')} 
+                    style={styles.cardImage} 
+                    contentFit="cover"
+                />
+                <View style={styles.cardOverlay} />
+            </View>
+            <View style={styles.cardContent}>
+                <Text style={styles.cardTitle} numberOfLines={1}>{loc.title}</Text>
+                <Text style={styles.cardCategory}>{loc.category}</Text>
+                <View style={styles.cardFooter}>
+                    <Ionicons name="bookmark" size={14} color={Colors.cyberpunk.neonGreen} />
+                    <Text style={styles.savedLabel}>SAVED</Text>
+                </View>
             </View>
         </View>
-    </AnimatedTouchable>
-  );
+    );
+
+    if (animated) {
+        return (
+            <AnimatedTouchable 
+                entering={FadeInDown.delay(index * 50).duration(400)}
+                activeOpacity={0.8}
+                onPress={() => {
+                    haptics.light();
+                    router.push(`/location/${loc.id}`);
+                }}
+            >
+                {content}
+            </AnimatedTouchable>
+        );
+    }
+
+    return (
+        <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={() => {
+                haptics.light();
+                router.push(`/location/${loc.id}`);
+            }}
+        >
+            {content}
+        </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -106,9 +130,10 @@ export default function FavoritesScreen() {
               </TouchableOpacity>
           </View>
       ) : (
-          <FlashList
+          <FlashList<LocationDetail>
             data={favorites}
             renderItem={renderItem}
+            // @ts-ignore
             estimatedItemSize={100}
             ListHeaderComponent={renderHeader}
             contentContainerStyle={styles.listContent}

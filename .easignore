@@ -1,24 +1,9 @@
-# Ignore local node_modules, as EAS will install them in the cloud
-node_modules/
-
-# Ignore local build artifacts
-.expo/
-android/
-ios/
-dist/
-
-# Ignore large unused assets
+# Ignore assets that are only for store listings or backups
 assets/未命名文件夹/
-
-# Ignore sensitive files (they should be in eas.json or EAS Secret)
-.env
-.env.local
-
-# Ignore large media if necessary (but keep app assets)
-# *.mp4
-# *.mov
-
-# Standard git ignores
-.git
-.gitignore
-.vscode
+edited-screenshots/
+COMMERCIAL_DESIGN.md
+OPERATIONS.md
+# Keep metromap.pdf and png as they are required by app/(tabs)/id.tsx
+.git/
+node_modules/
+.expo/

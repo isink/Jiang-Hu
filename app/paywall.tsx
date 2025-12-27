@@ -6,11 +6,11 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 import { useHaptics } from '@/hooks/use-haptics';
 import { BlurView } from 'expo-blur';
-import Purchases, { PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
+import Purchases, { PurchasesOffering, PurchasesPackage, PACKAGE_TYPE } from 'react-native-purchases';
 
 export default function PaywallScreen() {
   const router = useRouter();
-  const { restorePurchases } = useAuth(); // We don't need isPremium here, we want to buy
+  const { restorePurchases, user } = useAuth(); // We need user to verify login status
   const haptics = useHaptics();
   
   const [offering, setOffering] = useState<PurchasesOffering | null>(null);
@@ -21,11 +21,17 @@ export default function PaywallScreen() {
     const loadOfferings = async () => {
       try {
         const offerings = await Purchases.getOfferings();
-        if (offerings.current !== null) {
+        console.log('RC Offerings Response:', JSON.stringify(offerings, null, 2));
+        
+        if (offerings.current !== null && offerings.current.availablePackages.length > 0) {
+          console.log('Current Offering found:', offerings.current.identifier);
           setOffering(offerings.current);
+        } else {
+          console.warn('No current offering found or it is empty.');
         }
-      } catch (e) {
-        Alert.alert('Error', 'Unable to fetch offerings');
+      } catch (e: any) {
+        console.error('Error fetching offerings:', e);
+        Alert.alert('RC Error', e?.message || 'Unable to fetch offerings');
       } finally {
         setLoading(false);
       }
@@ -35,6 +41,20 @@ export default function PaywallScreen() {
 
   const handlePurchase = async (pkg: PurchasesPackage) => {
     if (purchasing) return;
+    
+    // Require Login for Purchase (Real Account)
+    if (!user || (user as any).isGuest) {
+      Alert.alert(
+        'Account Required',
+        'Please login or sign up to upgrade your account.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Login', onPress: () => router.push('/login') }
+        ]
+      );
+      return;
+    }
+
     setPurchasing(true);
     haptics.selection();
     
@@ -65,14 +85,18 @@ export default function PaywallScreen() {
     }
   };
 
-  // Find packages from offering
-  // Assuming 'weekly' and 'lifetime' are identifiers in RC, or just grab available packages
-  // Ideally, setup Offering in RC with specific identifiers like 'weekly' and 'lifetime'
-  // Or just iterate offering.availablePackages
+  // Helper to find package by identifier substring (Case Insensitive) or Type
+  const weeklyPkg = offering?.availablePackages.find(p => 
+    p.packageType === PACKAGE_TYPE.WEEKLY || 
+    p.identifier.toLowerCase().includes('weekly') || 
+    p.product.identifier.toLowerCase().includes('weekly')
+  );
   
-  // Helper to find package by identifier substring or custom logic
-  const weeklyPkg = offering?.availablePackages.find(p => p.identifier.includes('weekly'));
-  const lifetimePkg = offering?.availablePackages.find(p => p.identifier.includes('lifetime'));
+  const lifetimePkg = offering?.availablePackages.find(p => 
+    p.packageType === PACKAGE_TYPE.LIFETIME || 
+    p.identifier.toLowerCase().includes('lifetime') || 
+    p.product.identifier.toLowerCase().includes('lifetime')
+  );
 
   return (
     <View style={styles.container}>

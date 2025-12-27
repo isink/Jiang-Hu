@@ -74,19 +74,43 @@ export async function fetchPhrases(): Promise<Phrase[]> {
   if (hasSupabase && supabase) {
     const { data, error } = await supabase
       .from('phrases')
-      .select('id,en,cn,py')
+      .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return data || [];
+    return (data || []).map((item: any) => ({
+        id: item.id,
+        en: item.en || '',
+        cn: item.cn || item.zh || item.chinese || item.translation || '',
+        py: item.py || ''
+    }));
   }
   return api.get('/phrases');
 }
 
 export async function createPhrase(phrase: Omit<Phrase, 'id'>): Promise<Phrase> {
   if (hasSupabase && supabase) {
-    const { data, error } = await supabase.from('phrases').insert(phrase).select('id,en,cn,py').single();
-    if (error) throw error;
-    return data as Phrase;
+    const payload = {
+      original_text: phrase.en,
+      translated_text: phrase.cn,
+    };
+
+    const { data, error } = await supabase
+      .from('phrases')
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Supabase insert error:', error);
+      throw error;
+    }
+
+    return {
+      id: data.id,
+      en: data.original_text || '',
+      cn: data.translated_text || '',
+      py: data.py,
+    };
   }
   return api.post('/phrases', phrase);
 }

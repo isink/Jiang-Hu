@@ -43,3 +43,6 @@ app-example
 /android
 .env
 eas.json
+assets_backup/
+sentry.properties
+openjdk-17.jdk

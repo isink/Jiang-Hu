@@ -5,7 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useAuth } from '@/hooks/use-auth';
 
 export default function LoginScreen() {
-  const { login, resetPassword, signUp } = useAuth();
+  const { login, resetPassword, signUp, loginAsGuest } = useAuth();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -100,6 +100,10 @@ export default function LoginScreen() {
             </TouchableOpacity>
           )}
         </View>
+        
+        <TouchableOpacity onPress={() => loginAsGuest()} style={{marginTop: 40, alignSelf: 'center'}}>
+            <Text style={{color: '#444', fontSize: 10, letterSpacing: 2, fontWeight: 'bold'}}>CONTINUE AS GUEST</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );

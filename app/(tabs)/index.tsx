@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { StyleSheet, Text, View, Platform, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
@@ -16,7 +16,6 @@ type AdItem = { type: 'AD'; id: string };
 type ListItem = LocationListItem | AdItem;
 
 const FALLBACK_LOCATIONS: (LocationListItem & { image?: any })[] = [
-  // ... (keep fallback data - truncated for brevity in replacement, assuming context holds)
   { id: '01', title: 'HONGYA CAVE', category: 'SIGHTSEEING', tags: ['#CYBERPUNK', '#NIGHT'], image: require('../../assets/HONGYA_CAVE.jpg') },
   { id: '02', title: 'YANGTZE CABLEWAY', category: 'TRANSPORT', tags: ['#ICONIC', '#RIVER'], image: require('../../assets/TANGTZE_CABLEWAY.jpg') },
   { id: '03', title: 'LIZIBA STATION', category: 'TRANSPORT', tags: ['#TRAIN', '#VIRAL'], image: require('../../assets/LIZIBA_STATION.jpg') },
@@ -31,9 +30,98 @@ const FALLBACK_LOCATIONS: (LocationListItem & { image?: any })[] = [
 
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
 
+// --- OPTIMIZED SUB-COMPONENTS ---
+
+const AdCard = React.memo(() => {
+    const router = useRouter();
+    return (
+        <AnimatedTouchable 
+            entering={FadeInDown.duration(500)}
+            style={[styles.card, styles.adCard]} 
+            activeOpacity={0.9}
+            onPress={() => router.push('/paywall')}
+        >
+            <View style={styles.adImagePlaceholder}>
+                <Ionicons name="megaphone-outline" size={32} color="#444" />
+                <View style={styles.adBadge}>
+                    <Text style={styles.adBadgeText}>SPONSORED</Text>
+                </View>
+            </View>
+            <View style={styles.adContent}>
+                <Text style={styles.adTitle}>PROMOTED CONTENT</Text>
+                <Text style={styles.adDesc} numberOfLines={2}>
+                    Discover regional benefits and exclusive rewards. This data stream is supported by our sponsors.
+                </Text>
+                <TouchableOpacity style={styles.adAction} onPress={() => router.push('/paywall')}>
+                    <Text style={styles.adActionText}>REMOVE ADS // UPGRADE</Text>
+                </TouchableOpacity>
+            </View>
+        </AnimatedTouchable>
+    );
+});
+
+const LocationCard = React.memo(({ item, index }: { item: LocationListItem, index: number }) => {
+    const router = useRouter();
+    const haptics = useHaptics();
+    
+    // Only animate the first 10 items to prevent scrolling lag
+    const animated = index < 10;
+    
+    const content = (
+        <View style={styles.card}>
+            <View style={styles.cardImageContainer}>
+                <Image 
+                    source={item.image ? item.image : item.imageUrl ? { uri: item.imageUrl } : require('../../assets/HUBview.jpg')} 
+                    style={styles.cardImage} 
+                    contentFit="cover"
+                    transition={200} // Reduced transition time for snappier feel
+                    cachePolicy="memory-disk"
+                />
+                <View style={styles.cardOverlay} />
+                <Text style={styles.cardId}>{item.id}</Text>
+            </View>
+            <View style={styles.cardContent}>
+                <View style={styles.cardHeaderRow}>
+                    <Text style={styles.cardCategory}>{item.category}</Text>
+                </View>
+                <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit>{item.title}</Text>
+                <View style={styles.cardFooter}>
+                    <Text style={styles.cardTags}>{Array.isArray(item.tags) ? item.tags.join(' ') : (item.tags as any)}</Text>
+                    <Ionicons name="arrow-forward" size={20} color={Colors.cyberpunk.text} />
+                </View>
+            </View>
+        </View>
+    );
+
+    const handlePress = useCallback(() => {
+        haptics.light();
+        router.push(`/location/${item.id}`);
+    }, [item.id, haptics, router]);
+
+    if (animated) {
+        return (
+            <AnimatedTouchable 
+                entering={FadeInDown.delay(index * 50).duration(400).springify()}
+                activeOpacity={0.8}
+                onPress={handlePress}
+            >
+                {content}
+            </AnimatedTouchable>
+        );
+    }
+
+    return (
+        <TouchableOpacity 
+            activeOpacity={0.8}
+            onPress={handlePress}
+        >
+            {content}
+        </TouchableOpacity>
+    );
+});
+
 export default function HomeScreen() {
   const router = useRouter();
-  const haptics = useHaptics();
   const { isPremium } = useAuth(); // COMMERCIAL: Check Status
   const [locations, setLocations] = useState<LocationListItem[]>(FALLBACK_LOCATIONS);
   const [loading, setLoading] = useState(false);
@@ -84,7 +172,6 @@ export default function HomeScreen() {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
-        {/* ... (keep header content) */}
         <View style={styles.header}>
           <Text style={styles.logoText}>
             JIANG<Text style={{color: Colors.cyberpunk.neonOrange}}>/</Text>HU
@@ -129,72 +216,12 @@ export default function HomeScreen() {
     </View>
   );
 
-  const renderAdItem = () => {
-    return (
-        <AnimatedTouchable 
-            entering={FadeInDown.duration(500)}
-            style={[styles.card, styles.adCard]} 
-            activeOpacity={0.9}
-            onPress={() => router.push('/paywall')}
-        >
-            <View style={styles.adImagePlaceholder}>
-                <Ionicons name="megaphone-outline" size={32} color="#444" />
-                <View style={styles.adBadge}>
-                    <Text style={styles.adBadgeText}>SPONSORED</Text>
-                </View>
-            </View>
-            <View style={styles.adContent}>
-                <Text style={styles.adTitle}>PROMOTED CONTENT</Text>
-                <Text style={styles.adDesc} numberOfLines={2}>
-                    Discover regional benefits and exclusive rewards. This data stream is supported by our sponsors.
-                </Text>
-                <TouchableOpacity style={styles.adAction} onPress={() => router.push('/paywall')}>
-                    <Text style={styles.adActionText}>REMOVE ADS // UPGRADE</Text>
-                </TouchableOpacity>
-            </View>
-        </AnimatedTouchable>
-    );
-  };
-
-  const renderItem = ({ item, index }: { item: ListItem, index: number }) => {
+  const renderItem = useCallback(({ item, index }: { item: ListItem, index: number }) => {
     if ('type' in item && item.type === 'AD') {
-        return renderAdItem();
+        return <AdCard />;
     }
-    
-    const loc = item as LocationListItem;
-    return (
-        <AnimatedTouchable 
-            entering={FadeInDown.delay(index * 100).duration(500).springify()}
-            style={styles.card} 
-            activeOpacity={0.8}
-            onPress={() => {
-                haptics.light();
-                router.push(`/location/${loc.id}`);
-            }}
-        >
-            <View style={styles.cardImageContainer}>
-                <Image 
-                    source={loc.image ? loc.image : loc.imageUrl ? { uri: loc.imageUrl } : require('../../assets/HUBview.jpg')} 
-                    style={styles.cardImage} 
-                    contentFit="cover"
-                    transition={500}
-                />
-                <View style={styles.cardOverlay} />
-                <Text style={styles.cardId}>{loc.id}</Text>
-            </View>
-            <View style={styles.cardContent}>
-                <View style={styles.cardHeaderRow}>
-                    <Text style={styles.cardCategory}>{loc.category}</Text>
-                </View>
-                <Text style={styles.cardTitle} numberOfLines={2} adjustsFontSizeToFit>{loc.title}</Text>
-                <View style={styles.cardFooter}>
-                    <Text style={styles.cardTags}>{Array.isArray(loc.tags) ? loc.tags.join(' ') : (loc.tags as any)}</Text>
-                    <Ionicons name="arrow-forward" size={20} color={Colors.cyberpunk.text} />
-                </View>
-            </View>
-        </AnimatedTouchable>
-    );
-  };
+    return <LocationCard item={item as LocationListItem} index={index} />;
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -205,7 +232,7 @@ export default function HomeScreen() {
       />
       
       <FlashList<ListItem>
-        data={feedData} // Use mixed feed
+        data={feedData}
         renderItem={renderItem}
         // @ts-ignore
         estimatedItemSize={120}
@@ -213,6 +240,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={{height: 15}} />}
+        keyExtractor={(item) => item.id}
       />
     </View>
   );

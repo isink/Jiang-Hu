@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, TextInput, TouchableOpacity, ScrollView, Platform, Linking, Modal, Dimensions, KeyboardAvoidingView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ScrollView, Platform, Linking, Modal, Dimensions, KeyboardAvoidingView, Alert, ActivityIndicator } from 'react-native';
+import { Image } from 'expo-image';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import { Colors } from '@/constants/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -7,7 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import { Asset } from 'expo-asset';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAuth } from '@/hooks/use-auth';
 import { updateProfile, fetchPhrases, createPhrase, fetchRate, Phrase } from '@/services/user';
 import { useRouter } from 'expo-router';
@@ -24,7 +27,7 @@ const LOCAL_PHRASES: Phrase[] = [
   { id: 'local-4', en: "No spicy, please.", cn: "不要辣.", py: "Bùyào là." },
 ];
 
-type ToolType = 'CURRENCY' | 'TRANSLATE' | 'EMERGENCY' | 'SETTINGS' | 'METRO' | null;
+type ToolType = 'CURRENCY' | 'TRANSLATE' | 'EMERGENCY' | 'METRO' | null;
 
 export default function IDScreen() {
   const router = useRouter();
@@ -118,6 +121,12 @@ export default function IDScreen() {
       setUsername(name);
       setIsEditingName(false);
       handleProfileSave(name);
+  };
+
+  const handleLogout = () => {
+    // Fire and forget - don't await network requests
+    logout().catch(e => console.error('Background logout error', e));
+    router.replace('/login');
   };
 
   const handleCall = (number: string) => {
@@ -264,6 +273,36 @@ export default function IDScreen() {
       ],
     };
   });
+
+  const handleClearCache = async () => {
+    Alert.alert(
+      'Clear Cache',
+      'This will free up space and force a re-sync of all data. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Clear', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await Image.clearDiskCache();
+              
+              // Clear app specific cache keys
+              const keys = await AsyncStorage.getAllKeys();
+              const cacheKeys = keys.filter(k => k.startsWith('cache_'));
+              if (cacheKeys.length > 0) {
+                await AsyncStorage.multiRemove(cacheKeys);
+              }
+              
+              Alert.alert('System Purged', 'Cache cleared. Memory banks reset.');
+            } catch (e) {
+              Alert.alert('Error', 'Failed to clear cache.');
+            }
+          }
+        }
+      ]
+    );
+  };
 
   const renderToolContent = () => {
     switch (selectedTool) {
@@ -463,40 +502,29 @@ export default function IDScreen() {
                   allowsInlineMediaPlayback
                 />
               ) : (
-                <GestureDetector gesture={composedGesture}>
-                  <View style={styles.metroViewer}>
-                    <Animated.View style={[styles.metroImageWrapper, metroImageStyle]}>
-                      {metroPngUri ? (
-                        <Image
-                          source={{ uri: metroPngUri }}
-                          style={styles.metroImage}
-                          resizeMode="contain"
-                        />
-                      ) : (
-                        <Text style={styles.metroStatusText}>未找到地铁图资源</Text>
-                      )}
-                    </Animated.View>
-                  </View>
-                </GestureDetector>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                    <GestureDetector gesture={composedGesture}>
+                      <View style={styles.metroViewer}>
+                        <Animated.View style={[styles.metroImageWrapper, metroImageStyle]}>
+                          {metroPngUri ? (
+                            <Image
+                              source={{ uri: metroPngUri }}
+                              style={styles.metroImage}
+                              contentFit="contain"
+                              transition={200}
+                            />
+                          ) : (
+                            <Text style={styles.metroStatusText}>未找到地铁图资源</Text>
+                          )}
+                        </Animated.View>
+                      </View>
+                    </GestureDetector>
+                </GestureHandlerRootView>
               )
             )}
           </View>
         );
-      case 'SETTINGS':
-        return (
-          <View style={styles.modalContent}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="shield-checkmark-outline" size={24} color="#888" />
-              <Text style={styles.modalTitle}>NETWATCH PROTOCOL</Text>
-            </View>
-            <Text style={{color: '#888', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginBottom: 10}}>
-                System Integrity: 100%
-            </Text>
-            <Text style={{color: '#888', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace'}}>
-                Version: 1.0.0 (Alpha)
-            </Text>
-          </View>
-        );
+
       default:
         return null;
     }
@@ -521,7 +549,7 @@ export default function IDScreen() {
                 </Text>
                 <View style={{flexDirection: 'row', alignItems: 'center', gap: 12}}>
                     {user ? (
-                      <TouchableOpacity onPress={logout}>
+                      <TouchableOpacity onPress={handleLogout}>
                         <Text style={styles.editLabel}>LOGOUT</Text>
                       </TouchableOpacity>
                     ) : (
@@ -570,7 +598,7 @@ export default function IDScreen() {
                             <Text style={styles.upgradeText}>INITIALIZE UPLINK</Text>
                         </TouchableOpacity>
                     ) : (
-                        <Text style={styles.premiumBadge}>// LEGEND STATUS ACTIVE</Text>
+                        <Text style={styles.premiumBadge}>{'// LEGEND STATUS ACTIVE'}</Text>
                     )}
 
                     <View style={styles.coverageBar}>
@@ -641,33 +669,17 @@ export default function IDScreen() {
                 <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
 
-            <View style={styles.separator} />
 
-            <TouchableOpacity style={styles.commandRow} onPress={() => setSelectedTool('SETTINGS')}>
-                <View style={styles.commandLeft}>
-                    <Ionicons name="shield-checkmark-outline" size={20} color="#888" />
-                    <Text style={styles.commandText}>NetWatch Protocol</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#444" />
-            </TouchableOpacity>
         </View>
 
         {/* System Actions */}
         <View style={[styles.commandList, {marginTop: 30}]}>
-            <TouchableOpacity style={styles.commandRow}>
+
+
+            <TouchableOpacity style={styles.commandRow} onPress={handleClearCache}>
                 <View style={styles.commandLeft}>
                     <Ionicons name="trash-outline" size={20} color="#888" />
                     <Text style={styles.commandText}>Clear Cache</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={16} color="#444" />
-            </TouchableOpacity>
-            
-            <View style={styles.separator} />
-
-            <TouchableOpacity style={styles.commandRow}>
-                <View style={styles.commandLeft}>
-                    <Ionicons name="log-out-outline" size={20} color={Colors.cyberpunk.neonOrange} />
-                    <Text style={[styles.commandText, {color: Colors.cyberpunk.neonOrange}]}>Disconnect</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#444" />
             </TouchableOpacity>
@@ -686,7 +698,11 @@ export default function IDScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.modalOverlay}
         >
-          <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+          {Platform.OS === 'ios' ? (
+            <BlurView intensity={50} tint="dark" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.9)' }]} />
+          )}
           <View style={styles.modalContainer}>
              {renderToolContent()}
              
@@ -1130,5 +1146,12 @@ const styles = StyleSheet.create({
   metroImage: {
     width: '100%',
     height: '100%',
+  },
+  versionText: {
+    color: '#444',
+    fontSize: 10,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    textAlign: 'center',
+    marginTop: 20
   },
 });
