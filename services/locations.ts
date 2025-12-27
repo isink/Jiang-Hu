@@ -134,20 +134,11 @@ export async function fetchLocationDetail(id: string, onCacheHit?: (data: Locati
 export async function postLocationComment(id: string, payload: { text: string; rating?: number }): Promise<LocationComment> {
   // Comments are dynamic, usually no cache for POST
   if (hasSupabase && supabase) {
-    // FIX: Fetch current user metadata to populate user_name
-    const { data: { user } } = await supabase.auth.getUser();
-    const userName = user?.user_metadata?.nickname || user?.email?.split('@')[0] || 'Traveler';
-    const userAvatar = user?.user_metadata?.avatarUrl;
-
     const insertPayload = {
       location_id: id,
       text: payload.text,
       rating: payload.rating ?? null,
-      user_id: user?.id, // Explicitly set user_id if RLS doesn't handle it automatically
-      user_name: userName,
-      user_avatar: userAvatar
     };
-    
     const { data, error } = await supabase
       .from('location_comments')
       .insert(insertPayload)
@@ -171,37 +162,22 @@ const LOCAL_ASSETS: Record<string, any> = {
   '08': require('../assets/DAZU_ROCK_CARVINGS.jpg'),
   '09': require('../assets/WULONG_KAEST.jpg'),
   '10': require('../assets/SHIBATI_OLD_STREET.jpg'),
-  '11': require('../assets/Bai Xiang Ju.jpg'),
 };
 
 const DEFAULT_IMAGE = require('../assets/HUBview.jpg');
 
 function mapLocationListItem(row: any): LocationListItem {
-  if (!row) return { id: 'unknown', title: 'Unknown', category: '' };
-
-  const idStr = String(row?.id ?? '').trim();
-  // Try to find a numeric version of the ID for matching (e.g. "1" -> "01")
-  const numericId = idStr.replace(/[^0-9]/g, '');
-  const normalizedId = numericId.padStart(2, '0');
+  // Logic: Prefer remote URL -> then local mapping based on ID -> finally default fallback
+  const localImage = LOCAL_ASSETS[String(row?.id)];
   
-  const localImage = LOCAL_ASSETS[idStr] || 
-                     LOCAL_ASSETS[normalizedId] || 
-                     LOCAL_ASSETS[numericId];
-  
-  // Clean up imageUrl
-  let imageUrl = row?.image_url || row?.imageUrl;
-  if (typeof imageUrl === 'string' && (imageUrl.trim() === '' || imageUrl === 'null' || imageUrl === 'undefined')) {
-    imageUrl = undefined;
-  }
-
   return {
-    id: idStr,
-    title: row?.title || row?.name || 'Unknown',
+    id: String(row?.id ?? ''),
+    title: row?.title || 'Unknown',
     category: row?.category || '',
     tags: normalizeList(row?.tags),
-    imageUrl: imageUrl,
-    // Always provide local image as a fallback property if it exists
-    image: localImage,
+    imageUrl: row?.image_url || row?.imageUrl,
+    // Attach local asset even if hydrating from cache string
+    ...((!row?.image_url && localImage) ? { image: localImage } : {})
   } as LocationListItem;
 }
 

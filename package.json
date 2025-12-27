@@ -9,7 +9,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "build:prod:local": "eas build --profile production --platform android --local"
+    "build:prod:local": "export $(cat .env | xargs) && eas build --profile production --platform android --local"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

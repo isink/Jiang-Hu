@@ -89,45 +89,30 @@ export default function MapScreen() {
   const [userHeading, setUserHeading] = useState<number>(0);
   const [trackingMode, setTrackingMode] = useState<'none' | 'follow' | 'compass'>('none');
   const [status, requestPermission] = Location.useForegroundPermissions();
-  // PERFORMANCE: Control marker rendering
-  const [tracksViewChanges, setTracksViewChanges] = useState(true);
-
-  useEffect(() => {
-    if (markers.length > 0) {
-      setTracksViewChanges(true);
-      const timer = setTimeout(() => {
-        if (isMounted.current) setTracksViewChanges(false);
-      }, 1000); // Allow 1s for markers to render fully before freezing
-      return () => clearTimeout(timer);
-    }
-  }, [markers]);
 
   const loadData = useCallback(async () => {
-    setLoading(true);
+    // We remove the (markers.length > 0) return because we want to sync background data
+    // but we won't show a full-screen loader if we have cache.
+    
     try {
       const data = await fetchCorePOIs((cachedData) => {
+          // Instant display from cache
           if (isMounted.current && cachedData?.length) {
               setMarkers(cachedData);
           }
       });
 
-      if (isMounted.current) {
-        if (data?.length) {
-          setMarkers(data);
-        } else {
-          // DEBUG: Temporary alert to diagnose empty map
-          Alert.alert('Map Debug', 'No data found. Check:\n1. Supabase "pois" table is not empty.\n2. RLS Policies allow read access.');
-        }
+      if (isMounted.current && data?.length) {
+        setMarkers(data);
       }
-    } catch (e: any) {
-        console.warn('Map data sync failed:', e);
-        Alert.alert('Map Error', e?.message || 'Failed to sync data');
+    } catch (e) {
+        console.warn('Map data sync failed');
     } finally {
       if (isMounted.current) {
         setLoading(false);
       }
     }
-  }, []); // Remove dependency on markers.length to avoid any potential loops/re-creations
+  }, [markers.length]);
 
   // Use refs to access latest state inside listeners without re-binding
   const trackingModeRef = useRef(trackingMode);
@@ -146,62 +131,45 @@ export default function MapScreen() {
   useEffect(() => {
     let locationSub: Location.LocationSubscription | null = null;
     let headingSub: Location.LocationSubscription | null = null;
-    let isCancelled = false;
 
     const startTracking = async () => {
       const { status } = await Location.getForegroundPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status === 'granted') {
+        locationSub = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 1000,
+            distanceInterval: 2,
+          },
+          (loc) => {
+            // Keep WGS-84 to match CartoDB Tiles
+            const newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+            if (isMounted.current) {
+              setUserLocation(newCoords);
+            }
 
-      if (isCancelled) return;
+            if (trackingModeRef.current !== 'none' && mapRef.current) {
+              mapRef.current.animateCamera({ center: newCoords }, { duration: 500 });
+            }
+          }
+        );
 
-      // Location Subscription
-      const subLoc = await Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.High,
-          timeInterval: 1000,
-          distanceInterval: 2,
-        },
-        (loc) => {
-          const newCoords = { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+        headingSub = await Location.watchHeadingAsync((heading) => {
+          const h = heading.trueHeading || heading.magHeading;
           if (isMounted.current) {
-            setUserLocation(newCoords);
+            setUserHeading(h);
           }
 
-          if (trackingModeRef.current !== 'none' && mapRef.current) {
-            mapRef.current.animateCamera({ center: newCoords }, { duration: 500 });
+          if (trackingModeRef.current === 'compass' && mapRef.current) {
+            mapRef.current.animateCamera({ heading: h }, { duration: 500 });
           }
-        }
-      );
-      
-      if (isCancelled) {
-          subLoc.remove();
-      } else {
-          locationSub = subLoc;
-      }
-
-      // Heading Subscription
-      const subHead = await Location.watchHeadingAsync((heading) => {
-        const h = heading.trueHeading || heading.magHeading;
-        if (isMounted.current) {
-          setUserHeading(h);
-        }
-
-        if (trackingModeRef.current === 'compass' && mapRef.current) {
-          mapRef.current.animateCamera({ heading: h }, { duration: 500 });
-        }
-      });
-
-      if (isCancelled) {
-          subHead.remove();
-      } else {
-          headingSub = subHead;
+        });
       }
     };
 
     startTracking();
 
     return () => {
-      isCancelled = true;
       isMounted.current = false;
       locationSub?.remove();
       headingSub?.remove();
@@ -329,7 +297,7 @@ export default function MapScreen() {
                   haptics.light(); // Feedback on marker tap
                   setSelectedMarker(marker);
               }}
-              tracksViewChanges={tracksViewChanges}
+              tracksViewChanges={false} // Performance optimization
             >
               <View style={[styles.markerCircle, { backgroundColor: bg, borderColor: color }]}>
                  <Ionicons name={name as any} size={14} color={color} />
